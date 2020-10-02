@@ -21,5 +21,3 @@ def evaluate(smiles_list, train_list):
 
     return validity, uniquness, novelty
 
-
-def

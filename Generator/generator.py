@@ -1,0 +1,41 @@
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from Utils.utils import *
+from Model.model import LSTMModel
+
+
+def sample(model, vocab, num_mol, MAX_SEQ=80):
+    generated = []
+    for i in range(num_mol):
+        smiles = ["&"]
+        x = np.zeros([1, MAX_SEQ])
+        c_path = convert_smiles(smiles, vocab, mode="s2i")
+        x[0, :len(c_path)] = c_path
+        x = torch.tensor(x, dtype=torch.long)
+        x_len = [1]
+
+        while smiles[-1] != "\n" and len(smiles) < MAX_SEQ:
+            y = model(x, x_len)
+            y = F.softmax(y, dim=2)
+            y = y.to('cpu').detach().numpy().copy()
+            y = np.array(y[0, len(smiles)-1, :])
+            y = np.log(y)
+            prob = np.exp(y) / np.sum(np.exp(y))
+            ind = np.random.choice(range(len(prob)), p=prob)
+            x[0, len(smiles)-1] = ind
+            x_len[0] += 1
+            smiles.append(vocab[ind])
+
+        generated.append("".join(smiles))
+
+    return generated
+
+
+if __name__ == "__main__":
+    vocab = read_vocabulary("Data/vocabulary/zinc_vocab_iso.txt")
+    model = LSTMModel(vocab_size=len(vocab))
+    model.load_state_dict(torch.load("Data/model/LSTMModel-zinc.pth"))
+
+    smiles_list = sample(model, vocab, 100)

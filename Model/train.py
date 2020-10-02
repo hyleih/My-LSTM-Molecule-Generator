@@ -7,9 +7,9 @@ from Model.model import LSTMModel
 from Utils.utils import *
 
 
-VOCAB_PATH = "Data/vocabulary/zinc_vocab_iso.txt"
+VOCAB_PATH = "Data/vocabulary/zinc_vocab.txt"
 SMILES_PATH = "Data/zinc_250k.smi"
-# SMILES_PATH = "data/zinc/zinc_train_parsed20.smi"
+# SMILES_PATH = "Data/zinc/zinc_train_parsed20.smi"
 VALID_RATE = 0.2
 BATCH_SIZE = 1024
 SEQ_LEN = 80
@@ -19,23 +19,28 @@ INIT = 0
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def train_LSTMmodel(num_epoch, smiles_list, vocab, seq_len, batch_size):
-    smiles_list = [convert_smiles(parse_smiles("&" + s.rstrip("\n") + "\n"), vocab, mode="s2i") for s in smiles_list]
+def train_LSTMmodel(num_epoch, train_list, test_list, vocab, seq_len, batch_size):
+    train_list = [convert_smiles(parse_smiles("&" + s.rstrip("\n") + "\n"), vocab, mode="s2i") for s in train_list]
+    test_list = [convert_smiles(parse_smiles("&" + s.rstrip("\n") + "\n"), vocab, mode="s2i") for s in test_list]
 
-    sp = int(len(smiles_list) * (1 - VALID_RATE))
-    train_dataset = MolDataset(smiles_list[:sp], seq_len)
-    valid_dataset = MolDataset(smiles_list[sp:], seq_len)
+    train_dataset = MolDataset(train_list, seq_len)
+    valid_dataset = MolDataset(test_list, seq_len)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     valid_loader = torch.utils.data.DataLoader(valid_dataset, batch_size=batch_size, shuffle=True)
 
     model = LSTMModel(vocab_size=len(vocab))
+    model.load_state_dict(torch.load("Data/model/LSTMModel-zinc.pth"))
+
     model.to(device)
 
     criterion = nn.CrossEntropyLoss(ignore_index=0)
 
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
+    train_loss = []
+    valid_loss = []
     for epoch in range(1, num_epoch+1):
+        losses = []
         for i, (X, X_len) in enumerate(train_loader):
             optimizer.zero_grad()
 
@@ -46,15 +51,16 @@ def train_LSTMmodel(num_epoch, smiles_list, vocab, seq_len, batch_size):
             target = X[:, 1:]
             target = target.contiguous().view(-1)
 
-            print(source.shape, target.shape)
-
             loss = criterion(source, target.cuda())
+            losses.append(float(loss))
 
             loss.backward()
 
             optimizer.step()
 
             print("EPOCH%d:%d, Train loss:%f" % (epoch, i, loss))
+
+        train_loss.append(np.mean(losses))
 
         with torch.no_grad():
             valid_losses = []
@@ -70,23 +76,17 @@ def train_LSTMmodel(num_epoch, smiles_list, vocab, seq_len, batch_size):
                 valid_losses.append(float(loss))
 
             print("EPOCH%d:, Validation loss:%f" % (epoch, np.mean(valid_losses)))
+            valid_loss.append(np.mean(valid_losses))
 
-    return model, smiles_list[:sp], smiles_list[sp:]
+    return model, train_loss, valid_loss
 
 
 if __name__ == "__main__":
     MODEL = "LSTM"
-    smiles_list = read_smilesset(SMILES_PATH)
-    # smiles_list = [Chem.MolToSmiles(Chem.MolFromSmiles(smiles), isomericSmiles=False) for smiles in smiles_list]
+    train_list = read_smilesset("Data/zinc_250k_iso_train.smi")
+    test_list = read_smilesset("Data/zinc_250k_iso_test.smi")
     vocab = read_vocabulary(VOCAB_PATH)
-    model, train_list, test_list = train_LSTMmodel(EPOCH, smiles_list, vocab, SEQ_LEN, BATCH_SIZE)
+    model, train_loss, valid_loss = train_LSTMmodel(EPOCH, train_list, test_list, vocab, SEQ_LEN, BATCH_SIZE)
     torch.save(model.state_dict(), "Data/model/LSTMModel-zinc.pth")
 
-    with open(f"Data/zinc_train_{MODEL}.smi", mode="w") as f:
-        for smiles in smiles_list:
-            f.write(f"{smiles}\n")
-
-    with open(f"Data/zinc_test_{MODEL}.smi", mode="w") as f:
-        for smiles in smiles_list:
-            f.write(f"{smiles}\n")
 

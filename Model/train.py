@@ -21,7 +21,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def train_LSTMmodel(num_epoch, smiles_list, vocab, seq_len, batch_size):
     smiles_list = [convert_smiles(parse_smiles("&" + s.rstrip("\n") + "\n"), vocab, mode="s2i") for s in smiles_list]
-    smiles_list = [smiles for smiles in smiles_list if len(smiles) < 21]
 
     sp = int(len(smiles_list) * (1 - VALID_RATE))
     train_dataset = MolDataset(smiles_list[:sp], seq_len)

@@ -9,26 +9,25 @@ from Model.model import LSTMModel
 def sample(model, vocab, num_mol, MAX_SEQ=80):
     generated = []
     for i in range(num_mol):
-        smiles = ["&"]
+        smiles = parse_smiles("&")
         x = np.zeros([1, MAX_SEQ])
         c_path = convert_smiles(smiles, vocab, mode="s2i")
         x[0, :len(c_path)] = c_path
         x = torch.tensor(x, dtype=torch.long)
-        x_len = [1]
+        x_len = [2]
 
         while smiles[-1] != "\n" and len(smiles) < MAX_SEQ:
             y = model(x, x_len)
             y = F.softmax(y, dim=2)
             y = y.to('cpu').detach().numpy().copy()
             y = np.array(y[0, len(smiles)-1, :])
-            y = np.log(y)
-            prob = np.exp(y) / np.sum(np.exp(y))
-            ind = np.random.choice(range(len(prob)), p=prob)
+            ind = np.random.choice(range(len(y)), p=y)
+
             x[0, len(smiles)-1] = ind
             x_len[0] += 1
             smiles.append(vocab[ind])
 
-        generated.append("".join(smiles))
+        generated.append("".join(smiles[1:]).rstrip())
 
     return generated
 
@@ -38,4 +37,8 @@ if __name__ == "__main__":
     model = LSTMModel(vocab_size=len(vocab))
     model.load_state_dict(torch.load("Data/model/LSTMModel-zinc.pth"))
 
-    smiles_list = sample(model, vocab, 100)
+    smiles_list = sample(model, vocab, 1000)
+    for smiles in smiles_list:
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is not None:
+            print(smiles)

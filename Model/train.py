@@ -7,13 +7,13 @@ from Model.model import LSTMModel
 from Utils.utils import *
 
 
-VOCAB_PATH = "data/vocablary/vocab_zinc_full.txt"
-SMILES_PATH = "data/zinc/zinc_scfr_valid.smi"
+VOCAB_PATH = "Data/vocabulary/zinc_vocab_iso.txt"
+SMILES_PATH = "Data/zinc_250k.smi"
 # SMILES_PATH = "data/zinc/zinc_train_parsed20.smi"
 VALID_RATE = 0.2
 BATCH_SIZE = 1024
 SEQ_LEN = 80
-EPOCH = 50
+EPOCH = 20
 INIT = 0
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -74,8 +74,8 @@ def train_LSTMmodel(num_epoch, smiles_list, vocab, seq_len, batch_size):
 
 if __name__ == "__main__":
     MODEL = "LSTM"
-    smiles_list = read_smilesset("Data/zinc_250k.smi")
-    vocab = read_vocabulary("Data/vocabulary/zinc_vocab_iso.txt")
+    smiles_list = read_smilesset(SMILES_PATH)
+    vocab = read_vocabulary(VOCAB_PATH)
     model, train_list, test_list = train_LSTMmodel(EPOCH, smiles_list, vocab, SEQ_LEN, BATCH_SIZE)
     torch.save(model.state_dict(), "Data/model/LSTMModel-zinc.pth")
 

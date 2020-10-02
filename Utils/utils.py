@@ -10,6 +10,8 @@ from tqdm import tqdm
 import time
 
 import rdkit.Chem as Chem
+from rdkit import RDLogger
+RDLogger.DisableLog('rdApp.*')
 
 import torch
 import torch.nn as nn

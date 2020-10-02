@@ -46,6 +46,8 @@ def train_LSTMmodel(num_epoch, smiles_list, vocab, seq_len, batch_size):
             target = X[:, 1:]
             target = target.contiguous().view(-1)
 
+            print(source.shape, target.shape)
+
             loss = criterion(source, target.cuda())
 
             loss.backward()
@@ -75,6 +77,7 @@ def train_LSTMmodel(num_epoch, smiles_list, vocab, seq_len, batch_size):
 if __name__ == "__main__":
     MODEL = "LSTM"
     smiles_list = read_smilesset(SMILES_PATH)
+    # smiles_list = [Chem.MolToSmiles(Chem.MolFromSmiles(smiles), isomericSmiles=False) for smiles in smiles_list]
     vocab = read_vocabulary(VOCAB_PATH)
     model, train_list, test_list = train_LSTMmodel(EPOCH, smiles_list, vocab, SEQ_LEN, BATCH_SIZE)
     torch.save(model.state_dict(), "Data/model/LSTMModel-zinc.pth")
